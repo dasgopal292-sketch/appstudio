@@ -1,14 +1,12 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global Safety Net: Deny all unmatched reads and writes by default.
+    // Global safety net
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- GLOBAL HELPERS ---
     function isValidId(id) {
       return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -25,190 +23,168 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Zero-DB-read admin check for list queries and fast auth evaluation.
-    // Verified email check prevents unverified email spoofing.
-    function isAdminToken() {
-      return isSignedIn() &&
-             request.auth.token.email_verified == true &&
-             (request.auth.token.email == 'studiopixy64@gmail.com' ||
-              request.auth.token.email == 'dasgopal292@gmail.com');
-    }
-
-    // Full admin check for single-document reads and mutations (supports /admins/{uid}).
     function isAdmin() {
-      return isAdminToken() ||
-             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      return isSignedIn() && (
+        (request.auth.token.email_verified == true && request.auth.token.email == 'dasgopal292@gmail.com') ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
     }
 
-    // --- ENTITY VALIDATION HELPERS ---
     function isValidService(data) {
-      return data.keys().hasAll([
-               'name', 'category', 'size', 'frameType', 'frameDesign',
-               'price', 'unitLabel', 'description', 'deliverables',
-               'imageUrl', 'published', 'popular', 'sortOrder',
-               'createdAt', 'updatedAt'
-             ]) &&
-             data.keys().hasOnly([
-               'name', 'category', 'size', 'frameType', 'frameDesign',
-               'price', 'unitLabel', 'description', 'deliverables',
-               'imageUrl', 'published', 'popular', 'sortOrder',
-               'createdAt', 'updatedAt'
-             ]) &&
-             data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
-             data.category in ['PRINT', 'FRAME', 'PACKAGE'] &&
-             data.size is string && data.size.size() <= 60 &&
-             data.frameType is string && data.frameType.size() <= 60 &&
-             data.frameDesign is string && data.frameDesign.size() <= 60 &&
-             data.price is int && data.price >= 0 && data.price <= 10000000 &&
-             data.unitLabel is string && data.unitLabel.size() >= 1 && data.unitLabel.size() <= 40 &&
-             data.description is string && data.description.size() <= 500 &&
-             data.deliverables is string && data.deliverables.size() <= 500 &&
-             data.imageUrl is string && data.imageUrl.size() <= 1000 &&
-             data.published is bool &&
-             data.popular is bool &&
-             data.sortOrder is int && data.sortOrder >= 0 && data.sortOrder <= 10000 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
+      return data.name is string && data.name.size() >= 2 && data.name.size() <= 100 &&
+             data.hindiName is string && data.hindiName.size() >= 1 && data.hindiName.size() <= 120 &&
+             data.category in ['PHOTO_FRAMES', 'PASSPORT_PHOTOGRAPHY', 'PHOTOGRAPHY_SERVICES', 'PHOTO_PRINTING'] &&
+             data.priceInr is int && data.priceInr >= 0 && data.priceInr <= 10000000 &&
+             data.unitLabel is string && data.unitLabel.size() >= 1 && data.unitLabel.size() <= 50 &&
+             data.description is string && data.description.size() >= 2 && data.description.size() <= 500 &&
+             (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && data.imageUrl.size() <= 600)) &&
+             (!('presetKey' in data) || data.presetKey == null || (data.presetKey is string && data.presetKey.size() <= 50)) &&
+             data.available is bool &&
+             (!('featured' in data) || data.featured is bool) &&
+             data.sortOrder is int && data.sortOrder >= 0 && data.sortOrder <= 10000;
     }
 
     function isValidStudioConfig(data) {
-      return data.keys().hasAll([
-               'businessName', 'tagline', 'whatsappNumber', 'phoneNumber',
-               'email', 'address', 'openingHours', 'mapsUrl',
-               'welcomeBannerTitle', 'welcomeBannerSubtitle', 'updatedAt'
-             ]) &&
-             data.keys().hasOnly([
-               'businessName', 'tagline', 'whatsappNumber', 'phoneNumber',
-               'email', 'address', 'openingHours', 'mapsUrl',
-               'welcomeBannerTitle', 'welcomeBannerSubtitle', 'updatedAt'
-             ]) &&
-             data.businessName is string && data.businessName.size() >= 2 && data.businessName.size() <= 80 &&
-             data.tagline is string && data.tagline.size() <= 160 &&
+      return data.businessName is string && data.businessName.size() >= 2 && data.businessName.size() <= 80 &&
+             data.tagline is string && data.tagline.size() >= 2 && data.tagline.size() <= 140 &&
              data.whatsappNumber is string && data.whatsappNumber.size() >= 8 && data.whatsappNumber.size() <= 20 &&
-             data.phoneNumber is string && data.phoneNumber.size() >= 7 && data.phoneNumber.size() <= 25 &&
+             data.phoneNumber is string && data.phoneNumber.size() >= 8 && data.phoneNumber.size() <= 20 &&
+             data.address is string && data.address.size() >= 4 && data.address.size() <= 240 &&
              data.email is string && data.email.size() >= 5 && data.email.size() <= 120 &&
-             data.address is string && data.address.size() >= 4 && data.address.size() <= 250 &&
-             data.openingHours is string && data.openingHours.size() <= 100 &&
-             data.mapsUrl is string && data.mapsUrl.size() <= 500 &&
-             data.welcomeBannerTitle is string && data.welcomeBannerTitle.size() >= 2 && data.welcomeBannerTitle.size() <= 140 &&
-             data.welcomeBannerSubtitle is string && data.welcomeBannerSubtitle.size() <= 240 &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
+             data.openingHours is string && data.openingHours.size() >= 4 && data.openingHours.size() <= 140 &&
+             data.mapsQuery is string && data.mapsQuery.size() >= 2 && data.mapsQuery.size() <= 240 &&
+             data.specialOfferTitle is string && data.specialOfferTitle.size() >= 2 && data.specialOfferTitle.size() <= 100 &&
+             data.specialOfferDetails is string && data.specialOfferDetails.size() >= 2 && data.specialOfferDetails.size() <= 240;
     }
 
-    function isValidOrderBase(data) {
-      return data.keys().hasAll([
-               'orderCode', 'serviceId', 'serviceName', 'category',
-               'selectedSize', 'selectedFrameType', 'selectedFrameDesign',
-               'quantity', 'unitPrice', 'totalAmount',
-               'customerName', 'customerPhone', 'customerNotes',
-               'photoCount', 'photoSummary', 'status',
-               'customerUid', 'adminRemarks', 'createdAt', 'updatedAt'
-             ]) &&
-             data.keys().hasOnly([
-               'orderCode', 'serviceId', 'serviceName', 'category',
-               'selectedSize', 'selectedFrameType', 'selectedFrameDesign',
-               'quantity', 'unitPrice', 'totalAmount',
-               'customerName', 'customerPhone', 'customerNotes',
-               'photoCount', 'photoSummary', 'status',
-               'customerUid', 'adminRemarks', 'createdAt', 'updatedAt'
-             ]) &&
-             data.orderCode is string && data.orderCode.size() >= 4 && data.orderCode.size() <= 24 &&
-             data.serviceId is string && data.serviceId.size() >= 1 && data.serviceId.size() <= 128 &&
-             data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 120 &&
-             data.category in ['PRINT', 'FRAME', 'PACKAGE'] &&
-             data.selectedSize is string && data.selectedSize.size() <= 80 &&
-             data.selectedFrameType is string && data.selectedFrameType.size() <= 80 &&
-             data.selectedFrameDesign is string && data.selectedFrameDesign.size() <= 80 &&
-             data.quantity is int && data.quantity >= 1 && data.quantity <= 10000 &&
-             data.unitPrice is int && data.unitPrice >= 0 && data.unitPrice <= 10000000 &&
-             data.totalAmount is int && data.totalAmount >= 0 && data.totalAmount <= 100000000 &&
-             data.totalAmount == data.unitPrice * data.quantity &&
-             data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80 &&
+    function isValidOrder(data) {
+      return data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 80 &&
              data.customerPhone is string && data.customerPhone.size() >= 7 && data.customerPhone.size() <= 20 &&
-             data.customerNotes is string && data.customerNotes.size() <= 1000 &&
-             data.photoCount is int && data.photoCount >= 0 && data.photoCount <= 100 &&
-             data.photoSummary is string && data.photoSummary.size() <= 500 &&
-             data.status in ['PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'REJECTED'] &&
-             data.customerUid is string && data.customerUid.size() <= 128 &&
-             data.adminRemarks is string && data.adminRemarks.size() <= 500 &&
-             data.createdAt is timestamp && data.createdAt <= request.time &&
-             data.updatedAt is timestamp && data.updatedAt <= request.time;
+             (!('requirements' in data) || data.requirements == null || (data.requirements is string && data.requirements.size() <= 600)) &&
+             data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 1200 &&
+             data.itemCount is int && data.itemCount >= 1 && data.itemCount <= 500 &&
+             data.totalInr is int && data.totalInr >= 0 && data.totalInr <= 10000000 &&
+             data.status in ['PENDING', 'CONFIRMED', 'COMPLETED'];
     }
 
-    // --- COLLECTION RULES ---
+    function isValidOffer(data) {
+      return data.title is string && data.title.size() >= 2 && data.title.size() <= 100 &&
+             data.badge is string && data.badge.size() >= 1 && data.badge.size() <= 40 &&
+             data.description is string && data.description.size() >= 2 && data.description.size() <= 300 &&
+             data.promoCode is string && data.promoCode.size() >= 1 && data.promoCode.size() <= 30 &&
+             data.active is bool;
+    }
 
-    // Services catalog: customers read published items; only Admin can add/edit/delete.
+    function isValidReview(data) {
+      return data.authorName is string && data.authorName.size() >= 2 && data.authorName.size() <= 60 &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() >= 3 && data.comment.size() <= 400 &&
+             data.serviceTag is string && data.serviceTag.size() >= 2 && data.serviceTag.size() <= 60;
+    }
+
+    // 1. Public Storefront Services (Admin write only)
     match /services/{serviceId} {
-      allow get: if isValidId(serviceId) && (existing().published == true || isAdmin());
-      allow list: if resource.data.published == true || isAdminToken();
+      allow get, list: if true;
 
-      allow create: if isValidId(serviceId) &&
-                       isAdmin() &&
+      allow create: if isAdmin() &&
+                       isValidId(serviceId) &&
+                       incoming().keys().hasAll(['name', 'hindiName', 'category', 'priceInr', 'unitLabel', 'description', 'available', 'sortOrder', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['name', 'hindiName', 'category', 'priceInr', 'unitLabel', 'description', 'imageUrl', 'presetKey', 'available', 'featured', 'sortOrder', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
                        isValidService(incoming());
 
-      allow update: if isValidId(serviceId) &&
-                       isAdmin() &&
+      allow update: if isAdmin() &&
+                       isValidId(serviceId) &&
                        isValidService(incoming()) &&
                        incoming().createdAt == existing().createdAt &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'name', 'category', 'size', 'frameType', 'frameDesign',
-                         'price', 'unitLabel', 'description', 'deliverables',
-                         'imageUrl', 'published', 'popular', 'sortOrder', 'updatedAt'
-                       ]);
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'hindiName', 'category', 'priceInr', 'unitLabel', 'description', 'imageUrl', 'presetKey', 'available', 'featured', 'sortOrder', 'updatedAt']);
 
-      allow delete: if isValidId(serviceId) && isAdmin();
+      allow delete: if isAdmin() && isValidId(serviceId);
     }
 
-    // Studio business information and WhatsApp configuration (single doc: main).
+    // 2. Public Studio Business Config (Admin write only)
     match /studio_config/{configId} {
-      allow get: if configId == 'main';
-      allow list: if false;
-      allow create, update: if configId == 'main' &&
-                               isAdmin() &&
-                               isValidStudioConfig(incoming());
+      allow get, list: if true;
+
+      allow create: if isAdmin() &&
+                       isValidId(configId) &&
+                       incoming().keys().hasAll(['businessName', 'tagline', 'whatsappNumber', 'phoneNumber', 'address', 'email', 'openingHours', 'mapsQuery', 'specialOfferTitle', 'specialOfferDetails', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['businessName', 'tagline', 'whatsappNumber', 'phoneNumber', 'address', 'email', 'openingHours', 'mapsQuery', 'specialOfferTitle', 'specialOfferDetails', 'updatedAt']) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidStudioConfig(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(configId) &&
+                       isValidStudioConfig(incoming()) &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['businessName', 'tagline', 'whatsappNumber', 'phoneNumber', 'address', 'email', 'openingHours', 'mapsQuery', 'specialOfferTitle', 'specialOfferDetails', 'updatedAt']);
+
       allow delete: if false;
     }
 
-    // Customer orders:
-    // - Customers can submit valid PENDING orders without login (or linked to their own signed-in UID).
-    // - Customers cannot read, list, edit, or delete other customers' orders.
-    // - Signed-in customers can view only their own orders (where customerUid == request.auth.uid).
-    // - Only Admin can view all orders, update order status/pricing, or delete orders.
+    // 3. Customer Orders (Customer creates PENDING order without login; ONLY Admin reads/updates/deletes)
     match /orders/{orderId} {
-      allow get: if isValidId(orderId) && (
-        isAdmin() ||
-        (isSignedIn() && existing().customerUid != '' && existing().customerUid == request.auth.uid)
-      );
-
-      allow list: if isAdminToken() ||
-                     (isSignedIn() && resource.data.customerUid == request.auth.uid);
+      allow get, list: if isAdmin();
 
       allow create: if isValidId(orderId) &&
-                       isValidOrderBase(incoming()) &&
+                       incoming().keys().hasAll(['customerName', 'customerPhone', 'itemsSummary', 'itemCount', 'totalInr', 'status', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['customerName', 'customerPhone', 'requirements', 'itemsSummary', 'itemCount', 'totalInr', 'status', 'createdAt', 'updatedAt']) &&
                        incoming().status == 'PENDING' &&
-                       incoming().adminRemarks == '' &&
-                       (
-                         incoming().customerUid == '' ||
-                         (isSignedIn() && incoming().customerUid == request.auth.uid)
-                       );
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidOrder(incoming());
 
-      allow update: if isValidId(orderId) &&
-                       isAdmin() &&
-                       isValidOrderBase(incoming()) &&
+      allow update: if isAdmin() &&
+                       isValidId(orderId) &&
+                       isValidOrder(incoming()) &&
                        incoming().createdAt == existing().createdAt &&
-                       incoming().orderCode == existing().orderCode &&
-                       incoming().customerUid == existing().customerUid &&
-                       incoming().diff(existing()).affectedKeys().hasOnly([
-                         'status', 'adminRemarks', 'unitPrice', 'totalAmount', 'updatedAt'
-                       ]);
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
 
-      allow delete: if isValidId(orderId) && isAdmin();
+      allow delete: if isAdmin() && isValidId(orderId);
     }
 
-    // Admin membership documents: read own status only, never client-writable.
+    // 4. Special Offers (Public read; Admin write)
+    match /offers/{offerId} {
+      allow get, list: if true;
+
+      allow create: if isAdmin() &&
+                       isValidId(offerId) &&
+                       incoming().keys().hasAll(['title', 'badge', 'description', 'promoCode', 'active', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['title', 'badge', 'description', 'promoCode', 'active', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       isValidOffer(incoming());
+
+      allow update: if isAdmin() &&
+                       isValidId(offerId) &&
+                       isValidOffer(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt is timestamp && incoming().updatedAt <= request.time &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['title', 'badge', 'description', 'promoCode', 'active', 'updatedAt']);
+
+      allow delete: if isAdmin() && isValidId(offerId);
+    }
+
+    // 5. Customer Reviews (Public read & verified-schema create; Admin update/delete)
+    match /reviews/{reviewId} {
+      allow get, list: if true;
+
+      allow create: if isValidId(reviewId) &&
+                       incoming().keys().hasAll(['authorName', 'rating', 'comment', 'serviceTag', 'createdAt']) &&
+                       incoming().keys().hasOnly(['authorName', 'rating', 'comment', 'serviceTag', 'createdAt']) &&
+                       incoming().createdAt is timestamp && incoming().createdAt <= request.time &&
+                       isValidReview(incoming());
+
+      allow update, delete: if isAdmin() && isValidId(reviewId);
+    }
+
+    // 6. Admin Authorization Records
     match /admins/{adminUid} {
       allow get: if isSignedIn() && request.auth.uid == adminUid;
-      allow list, write: if false;
+      allow list, create, update, delete: if false;
     }
   }
 }

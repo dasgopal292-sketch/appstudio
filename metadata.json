@@ -1,8 +1,6 @@
 {
   "name": "Studio Pixy",
-  "description": "Photography, photo printing, custom photo framing, and video services ordering app for Studio Pixy with Firebase backend and Admin Dashboard.",
+  "description": "Photography studio & photo printing app with live rate list, WhatsApp ordering, gallery, and admin dashboard.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

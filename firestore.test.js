@@ -8,81 +8,14 @@ const fs = require("node:fs");
 
 let testEnv;
 const PROJECT_ID = process.env.GCP_PROJECT || "demo-no-project";
-const ADMIN_UID = "admin_pixy_1";
-const ADMIN_EMAIL = "studiopixy64@gmail.com";
-const CUSTOMER_UID = "customer_123";
-const OTHER_UID = "customer_456";
+const ADMIN_UID = "admin_gopal";
+const ADMIN_EMAIL = "dasgopal292@gmail.com";
+const CUSTOMER_UID = "customer_rahul";
 
 const [emulatorHost, emulatorPortStr] = (
   process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8085"
 ).split(":");
 const emulatorPort = parseInt(emulatorPortStr, 10);
-
-function validServicePayload(overrides = {}) {
-  const past = new Date(Date.now() - 5000);
-  return {
-    name: "4x6 Glossy Photo Print",
-    category: "PRINT",
-    size: "4x6 inch",
-    frameType: "",
-    frameDesign: "",
-    price: 25,
-    unitLabel: "per print",
-    description: "Archival lab-grade glossy print with rich color.",
-    deliverables: "High-gloss 260gsm paper",
-    imageUrl: "drawable:img_photo_printing",
-    published: true,
-    popular: true,
-    sortOrder: 2,
-    createdAt: past,
-    updatedAt: past,
-    ...overrides,
-  };
-}
-
-function validOrderPayload(overrides = {}) {
-  const past = new Date(Date.now() - 5000);
-  return {
-    orderCode: "PX-2026-1042",
-    serviceId: "print_4x6",
-    serviceName: "4x6 Glossy Photo Print",
-    category: "PRINT",
-    selectedSize: "4x6 inch",
-    selectedFrameType: "",
-    selectedFrameDesign: "",
-    quantity: 10,
-    unitPrice: 25,
-    totalAmount: 250,
-    customerName: "Aarav Sharma",
-    customerPhone: "9876543210",
-    customerNotes: "Borderless glossy finish please",
-    photoCount: 3,
-    photoSummary: "IMG_01.jpg, IMG_02.jpg, IMG_03.jpg",
-    status: "PENDING",
-    customerUid: "",
-    adminRemarks: "",
-    createdAt: past,
-    updatedAt: past,
-    ...overrides,
-  };
-}
-
-function validConfigPayload(overrides = {}) {
-  return {
-    businessName: "Studio Pixy",
-    tagline: "Capturing Timeless Memories in Every Frame",
-    whatsappNumber: "919876543210",
-    phoneNumber: "+91 98765 43210",
-    email: "studiopixy64@gmail.com",
-    address: "Station Road, Near City Center, Kolkata 700001",
-    openingHours: "Mon - Sun: 9:30 AM - 9:00 PM",
-    mapsUrl: "https://maps.google.com/?q=Studio+Pixy",
-    welcomeBannerTitle: "Pro Prints, Custom Frames & Wedding Cinema",
-    welcomeBannerSubtitle: "Same-day passport prints & instant WhatsApp ordering",
-    updatedAt: new Date(Date.now() - 2000),
-    ...overrides,
-  };
-}
 
 before(async () => {
   const rules = fs.readFileSync("./firestore.rules", "utf8");
@@ -108,163 +41,256 @@ beforeEach(async () => {
   }
 });
 
-test("Customers without login can read published services but not unpublished drafts", async () => {
-  await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    const db = ctx.firestore();
-    await db.collection("services").doc("svc_pub").set(validServicePayload({ published: true }));
-    await db.collection("services").doc("svc_draft").set(validServicePayload({ published: false }));
-  });
+function adminDb() {
+  return testEnv
+    .authenticatedContext(ADMIN_UID, {
+      email: ADMIN_EMAIL,
+      email_verified: true,
+    })
+    .firestore();
+}
 
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  await assertSucceeds(unauthDb.collection("services").doc("svc_pub").get());
+function unverifiedAdminSpoofDb() {
+  return testEnv
+    .authenticatedContext("spoof_uid", {
+      email: ADMIN_EMAIL,
+      email_verified: false,
+    })
+    .firestore();
+}
+
+function sampleServicePayload(now = new Date(Date.now() - 5000)) {
+  return {
+    name: "8x10 Photo Frame",
+    hindiName: "8x10 फोटो फ्रेम (गोल्ड वुड)",
+    category: "PHOTO_FRAMES",
+    priceInr: 450,
+    unitLabel: "Per Frame",
+    description: "Premium brushed gold and matte black wooden frame with anti-glare glass.",
+    presetKey: "frames",
+    available: true,
+    featured: true,
+    sortOrder: 3,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function sampleOrderPayload(now = new Date(Date.now() - 5000)) {
+  return {
+    customerName: "Aarav Sharma",
+    customerPhone: "+91 9876543210",
+    requirements: "Need glossy finish, urgent pickup tomorrow 5 PM",
+    itemsSummary: "2x 8x10 Photo Frame (₹900), 1x Urgent Passport Photo (₹200)",
+    itemCount: 3,
+    totalInr: 1100,
+    status: "PENDING",
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+test("Customers without login can browse services, studio config, offers, and reviews", async () => {
+  const now = new Date(Date.now() - 5000);
+  await assertSucceeds(adminDb().collection("services").doc("frame_8x10").set(sampleServicePayload(now)));
   await assertSucceeds(
-    unauthDb.collection("services").where("published", "==", true).get()
+    adminDb().collection("studio_config").doc("main").set({
+      businessName: "Studio Pixy",
+      tagline: "Timeless Frames, Portraits & Cinematic Memories",
+      whatsappNumber: "+919876543210",
+      phoneNumber: "+919876543210",
+      address: "Shop 12, Main Market Road, Near City Center",
+      email: "hello@studiopixy.in",
+      openingHours: "Mon - Sun: 9:30 AM - 9:00 PM",
+      mapsQuery: "Studio Pixy Photography Studio",
+      specialOfferTitle: "Festive Frame Combo",
+      specialOfferDetails: "Flat 15% OFF on 12x18 & 16x20 Wedding Frames",
+      updatedAt: now,
+    })
   );
-  await assertFails(unauthDb.collection("services").doc("svc_draft").get());
-  await assertFails(unauthDb.collection("services").get());
+
+  const guestDb = testEnv.unauthenticatedContext().firestore();
+  await assertSucceeds(guestDb.collection("services").get());
+  await assertSucceeds(guestDb.collection("studio_config").doc("main").get());
+  await assertSucceeds(guestDb.collection("offers").get());
+  await assertSucceeds(guestDb.collection("reviews").get());
 });
 
-test("Only verified Admin can create, update, or delete services; email spoofing fails", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const customerDb = testEnv
-    .authenticatedContext(CUSTOMER_UID, { email: "random@gmail.com", email_verified: true })
-    .firestore();
-  const spoofedAdminDb = testEnv
-    .authenticatedContext("spoof_1", { email: ADMIN_EMAIL, email_verified: false })
-    .firestore();
-  const adminDb = testEnv
-    .authenticatedContext(ADMIN_UID, { email: ADMIN_EMAIL, email_verified: true })
-    .firestore();
+test("Non-admins and spoofed unverified email cannot modify services or studio config", async () => {
+  const now = new Date(Date.now() - 5000);
+  const guestDb = testEnv.unauthenticatedContext().firestore();
+  const userDb = testEnv.authenticatedContext(CUSTOMER_UID, { email: "user@example.com", email_verified: true }).firestore();
 
-  await assertFails(unauthDb.collection("services").doc("svc_1").set(validServicePayload()));
-  await assertFails(customerDb.collection("services").doc("svc_1").set(validServicePayload()));
-  await assertFails(spoofedAdminDb.collection("services").doc("svc_1").set(validServicePayload()));
+  await assertFails(guestDb.collection("services").doc("frame_8x10").set(sampleServicePayload(now)));
+  await assertFails(userDb.collection("services").doc("frame_8x10").set(sampleServicePayload(now)));
+  await assertFails(unverifiedAdminSpoofDb().collection("services").doc("frame_8x10").set(sampleServicePayload(now)));
+});
 
-  // Valid admin create
-  await assertSucceeds(adminDb.collection("services").doc("svc_1").set(validServicePayload()));
+test("Admin can create, partially update price, and delete services; rejects @DocumentId id and ghost keys", async () => {
+  const created = new Date(Date.now() - 10000);
+  const serviceRef = adminDb().collection("services").doc("frame_8x10");
 
-  // Reject ghost field / @DocumentId 'id' inside doc body
-  await assertFails(
-    adminDb.collection("services").doc("svc_bad").set(validServicePayload({ id: "svc_bad" }))
-  );
-
-  // Valid admin partial update (preserves createdAt)
+  await assertSucceeds(serviceRef.set(sampleServicePayload(created)));
   await assertSucceeds(
-    adminDb.collection("services").doc("svc_1").update({
-      price: 30,
+    serviceRef.update({
+      priceInr: 499,
       updatedAt: new Date(Date.now() - 1000),
     })
   );
 
-  // Reject createdAt mutation
+  // Reject immutable createdAt change
   await assertFails(
-    adminDb.collection("services").doc("svc_1").update({
-      createdAt: new Date(Date.now() - 1000),
-      updatedAt: new Date(Date.now() - 1000),
+    serviceRef.update({
+      createdAt: new Date(Date.now() - 500),
+      updatedAt: new Date(Date.now() - 500),
     })
   );
 
-  await assertSucceeds(adminDb.collection("services").doc("svc_1").delete());
+  // Reject @DocumentId "id" key inside payload
+  const withId = { ...sampleServicePayload(created), id: "frame_bad" };
+  await assertFails(adminDb().collection("services").doc("frame_bad").set(withId));
+
+  // Reject shadow/ghost field
+  const withGhost = { ...sampleServicePayload(created), isAdmin: true };
+  await assertFails(adminDb().collection("services").doc("frame_ghost").set(withGhost));
+
+  // Reject future timestamp
+  await assertFails(
+    adminDb().collection("services").doc("frame_future").set(sampleServicePayload(new Date(Date.now() + 60000)))
+  );
+
+  await assertSucceeds(serviceRef.delete());
 });
 
-test("Customer can submit valid PENDING order without login, cannot tamper price or status", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
+test("Orders PII protection: customers can create PENDING orders without login, cannot read/list/update/delete; only Admin can manage", async () => {
+  const guestDb = testEnv.unauthenticatedContext().firestore();
+  const now = new Date(Date.now() - 5000);
 
-  // Valid guest order succeeds
-  await assertSucceeds(unauthDb.collection("orders").doc("order_1").set(validOrderPayload()));
+  // Customer creates PENDING order
+  await assertSucceeds(guestDb.collection("orders").doc("ord_1001").set(sampleOrderPayload(now)));
 
-  // Tampered totalAmount fails
+  // Customer cannot shortcut status to COMPLETED on create
   await assertFails(
-    unauthDb.collection("orders").doc("order_2").set(validOrderPayload({ totalAmount: 10 }))
+    guestDb.collection("orders").doc("ord_1002").set({
+      ...sampleOrderPayload(now),
+      status: "COMPLETED",
+    })
   );
 
-  // Tampered initial status fails
-  await assertFails(
-    unauthDb.collection("orders").doc("order_3").set(validOrderPayload({ status: "COMPLETED" }))
-  );
+  // Customer or signed-in non-admin cannot read or list orders (PII protection)
+  await assertFails(guestDb.collection("orders").doc("ord_1001").get());
+  await assertFails(guestDb.collection("orders").get());
 
-  // Impersonating another user's customerUid fails
-  await assertFails(
-    unauthDb.collection("orders").doc("order_4").set(validOrderPayload({ customerUid: OTHER_UID }))
-  );
+  const nonAdminDb = testEnv.authenticatedContext(CUSTOMER_UID, { email: "other@example.com", email_verified: true }).firestore();
+  await assertFails(nonAdminDb.collection("orders").get());
+  await assertFails(nonAdminDb.collection("orders").doc("ord_1001").update({ status: "CONFIRMED", updatedAt: new Date(Date.now() - 1000) }));
 
-  // Future timestamp fails
-  await assertFails(
-    unauthDb
-      .collection("orders")
-      .doc("order_5")
-      .set(validOrderPayload({ createdAt: new Date(Date.now() + 120000) }))
-  );
-});
-
-test("Customers cannot read, list, edit, or delete other customers' orders; Admin manages all orders", async () => {
-  await testEnv.withSecurityRulesDisabled(async (ctx) => {
-    const db = ctx.firestore();
-    await db
-      .collection("orders")
-      .doc("order_guest")
-      .set(validOrderPayload({ customerUid: "" }));
-    await db
-      .collection("orders")
-      .doc("order_cust")
-      .set(validOrderPayload({ customerUid: CUSTOMER_UID }));
-  });
-
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const otherDb = testEnv
-    .authenticatedContext(OTHER_UID, { email: "other@gmail.com", email_verified: true })
-    .firestore();
-  const customerDb = testEnv
-    .authenticatedContext(CUSTOMER_UID, { email: "cust@gmail.com", email_verified: true })
-    .firestore();
-  const adminDb = testEnv
-    .authenticatedContext(ADMIN_UID, { email: ADMIN_EMAIL, email_verified: true })
-    .firestore();
-
-  // Unauthenticated cannot read or list orders
-  await assertFails(unauthDb.collection("orders").doc("order_guest").get());
-  await assertFails(unauthDb.collection("orders").get());
-
-  // Other customer cannot read, list, update, or delete someone else's order
-  await assertFails(otherDb.collection("orders").doc("order_cust").get());
-  await assertFails(otherDb.collection("orders").get());
-  await assertFails(
-    otherDb.collection("orders").doc("order_cust").update({ status: "REJECTED" })
-  );
-  await assertFails(otherDb.collection("orders").doc("order_cust").delete());
-
-  // Signed-in customer can read/list ONLY their own orders
-  await assertSucceeds(customerDb.collection("orders").doc("order_cust").get());
+  // Admin can list and update status
+  await assertSucceeds(adminDb().collection("orders").get());
   await assertSucceeds(
-    customerDb.collection("orders").where("customerUid", "==", CUSTOMER_UID).get()
-  );
-  await assertFails(customerDb.collection("orders").doc("order_guest").get());
-
-  // Admin can list all orders and update status
-  await assertSucceeds(adminDb.collection("orders").get());
-  await assertSucceeds(
-    adminDb.collection("orders").doc("order_guest").update({
-      status: "ACCEPTED",
-      adminRemarks: "Ready for printing today",
+    adminDb().collection("orders").doc("ord_1001").update({
+      status: "CONFIRMED",
       updatedAt: new Date(Date.now() - 1000),
     })
   );
   await assertSucceeds(
-    adminDb.collection("orders").doc("order_guest").update({
+    adminDb().collection("orders").doc("ord_1001").update({
       status: "COMPLETED",
       updatedAt: new Date(Date.now() - 500),
     })
   );
 });
 
-test("Studio config readable by public, writable only by verified Admin", async () => {
-  const unauthDb = testEnv.unauthenticatedContext().firestore();
-  const adminDb = testEnv
-    .authenticatedContext(ADMIN_UID, { email: ADMIN_EMAIL, email_verified: true })
+test("Offers protection: unauthorized users cannot create, update, or delete offers; Admin can manage offers", async () => {
+  const now = new Date(Date.now() - 5000);
+  const offerPayload = {
+    title: "Diwali Frame Offer",
+    badge: "20% OFF",
+    description: "Discount on 12x18 photo frames.",
+    promoCode: "DIWALI20",
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const guestDb = testEnv.unauthenticatedContext().firestore();
+  const nonAdminDb = testEnv
+    .authenticatedContext(CUSTOMER_UID, { email: "user@example.com", email_verified: true })
     .firestore();
 
-  await assertFails(unauthDb.collection("studio_config").doc("main").set(validConfigPayload()));
-  await assertSucceeds(adminDb.collection("studio_config").doc("main").set(validConfigPayload()));
-  await assertSucceeds(unauthDb.collection("studio_config").doc("main").get());
-  await assertFails(unauthDb.collection("studio_config").get());
+  await assertFails(guestDb.collection("offers").doc("offer_1").set(offerPayload));
+  await assertFails(nonAdminDb.collection("offers").doc("offer_1").set(offerPayload));
+  await assertFails(unverifiedAdminSpoofDb().collection("offers").doc("offer_1").set(offerPayload));
+
+  await assertSucceeds(adminDb().collection("offers").doc("offer_1").set(offerPayload));
+  await assertSucceeds(
+    adminDb().collection("offers").doc("offer_1").update({
+      active: false,
+      updatedAt: new Date(Date.now() - 1000),
+    })
+  );
+  await assertFails(guestDb.collection("offers").doc("offer_1").delete());
+  await assertFails(nonAdminDb.collection("offers").doc("offer_1").delete());
+  await assertSucceeds(adminDb().collection("offers").doc("offer_1").delete());
+});
+
+test("Service photos: only Admin can update or delete imageUrl; customers and unverified accounts are denied", async () => {
+  const created = new Date(Date.now() - 10000);
+  const serviceRef = adminDb().collection("services").doc("frame_8x10");
+  await assertSucceeds(serviceRef.set(sampleServicePayload(created)));
+
+  const storageUrl =
+    "https://firebasestorage.googleapis.com/v0/b/gen-lang-client-0184859803.firebasestorage.app/o/service_photos%2Fframe_8x10%2Fphoto_1700000000000.jpg?alt=media&token=abc123";
+
+  // Guest & signed-in non-admin customers must be blocked from modifying service photos
+  const guestDb = testEnv.unauthenticatedContext().firestore();
+  const nonAdminDb = testEnv
+    .authenticatedContext(CUSTOMER_UID, { email: "customer@example.com", email_verified: true })
+    .firestore();
+
+  await assertFails(
+    guestDb.collection("services").doc("frame_8x10").update({
+      imageUrl: storageUrl,
+      updatedAt: new Date(Date.now() - 2000),
+    })
+  );
+  await assertFails(
+    nonAdminDb.collection("services").doc("frame_8x10").update({
+      imageUrl: storageUrl,
+      updatedAt: new Date(Date.now() - 2000),
+    })
+  );
+  await assertFails(
+    unverifiedAdminSpoofDb().collection("services").doc("frame_8x10").update({
+      imageUrl: storageUrl,
+      updatedAt: new Date(Date.now() - 2000),
+    })
+  );
+
+  // Admin can save & replace Storage download URL on service
+  await assertSucceeds(
+    serviceRef.update({
+      imageUrl: storageUrl,
+      updatedAt: new Date(Date.now() - 1500),
+    })
+  );
+
+  // Reject oversized imageUrl (> 600 chars)
+  await assertFails(
+    serviceRef.update({
+      imageUrl: "https://firebasestorage.googleapis.com/" + "a".repeat(600),
+      updatedAt: new Date(Date.now() - 1200),
+    })
+  );
+
+  // Admin can delete custom photo by setting imageUrl to null
+  await assertSucceeds(
+    serviceRef.update({
+      imageUrl: null,
+      updatedAt: new Date(Date.now() - 1000),
+    })
+  );
+
+  // Customers can still read the service record without login
+  await assertSucceeds(guestDb.collection("services").doc("frame_8x10").get());
 });

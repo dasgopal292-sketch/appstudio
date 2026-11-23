@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Global safety net: deny all reads/writes by default
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email_verified == true &&
+         request.auth.token.email == 'dasgopal292@gmail.com') ||
+        firestore.exists(
+          /databases/ai-studio-android-studiopi-1db7d8bc-1acd-448e-8253-2032cbd78d53/documents/admins/$(request.auth.uid)
+        )
+      );
+    }
+
+    function isValidId(value) {
+      return value is string &&
+             value.size() >= 1 &&
+             value.size() <= 128 &&
+             value.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidPhotoFileName(fileName) {
+      return fileName is string &&
+             fileName.size() >= 5 &&
+             fileName.size() <= 160 &&
+             fileName.matches('^[a-zA-Z0-9_\\-]+\\.(jpg|jpeg|png)$');
+    }
+
+    function isValidServicePhoto() {
+      return request.resource != null &&
+             request.resource.size > 0 &&
+             request.resource.size <= 10 * 1024 * 1024 &&
+             request.resource.contentType != null &&
+             request.resource.contentType.matches('^image/(jpeg|jpg|png)$');
+    }
+
+    // Service photos: public read for customers; strictly admin-only upload, replace & delete
+    match /service_photos/{serviceId}/{fileName} {
+      allow read: if true;
+      allow create, update: if isAdmin() &&
+                               isValidId(serviceId) &&
+                               isValidPhotoFileName(fileName) &&
+                               isValidServicePhoto();
+      allow delete: if isAdmin() && isValidId(serviceId);
+    }
+  }
+}
