@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "1023334026231-fg7q13jct4r2fn2e5agj2mcl80apj3nr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.studiopixy.app",
+            "certificate_hash": "7cf2e635e84a0f996d17eb4487b5b74bd9b3ecfd"
+          }
+        },
+        {
           "client_id": "1023334026231-gu6ifd217imi4ose4jq2ognisljs5bgo.apps.googleusercontent.com",
           "client_type": 3
         }
