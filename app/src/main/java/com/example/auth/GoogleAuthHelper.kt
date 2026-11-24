@@ -109,8 +109,19 @@ fun onAdminGoogleSignInClicked(
             val cred = credentialManager.getCredential(activity, request).credential
             if (cred is CustomCredential && cred.type == TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
                 val token = GoogleIdTokenCredential.createFrom(cred.data).idToken
-                Firebase.auth.signInWithCredential(GoogleAuthProvider.getCredential(token, null)).await()
-                onAuthSuccess()
+
+val authResult = Firebase.auth.signInWithCredential(
+    GoogleAuthProvider.getCredential(token, null)
+).await()
+
+val signedInUser = authResult.user
+
+Log.d(
+    TAG,
+    "Login success: email=${signedInUser?.email}, verified=${signedInUser?.isEmailVerified}, uid=${signedInUser?.uid}"
+)
+
+onAuthSuccess()
             } else {
                 onAuthError("Unexpected credential type received.")
             }
