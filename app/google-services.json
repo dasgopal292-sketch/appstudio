@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "295048959508-r8bqr0io3hlps8k5n192vr649ml6naei.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.studiopixy.app",
+            "certificate_hash": "67aa1ed3b15afae6246efd6ec32817cc73824d62"
+          }
+        },
+        {
           "client_id": "295048959508-2kh76vfmhh6cta6gr9682640u27s1edv.apps.googleusercontent.com",
           "client_type": 3
         }
