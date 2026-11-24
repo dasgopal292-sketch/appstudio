@@ -12,7 +12,12 @@
           "package_name": "com.studiopixy.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "295048959508-2kh76vfmhh6cta6gr9682640u27s1edv.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB_7LU7bxZLaIDlJqw0N8p_uV515KsBH9I"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "295048959508-2kh76vfmhh6cta6gr9682640u27s1edv.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
